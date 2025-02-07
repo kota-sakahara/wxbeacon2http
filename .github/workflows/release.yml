@@ -1,0 +1,89 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: arm64
+            target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            arch: x86_64
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            arch: arm64
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            arch: x86_64
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            arch: arm64
+            target: aarch64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Add target triple
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+      
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          mkdir artifact
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            cp target/${{ matrix.target }}/release/wxbeacon2http.exe artifact/wxbeacon2http-${{ matrix.os }}-${{ matrix.arch }}.exe
+          else
+            cp target/${{ matrix.target }}/release/wxbeacon2http artifact/wxbeacon2http-${{ matrix.os }}-${{ matrix.arch }}
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: wxbeacon2http-${{ matrix.os }}-${{ matrix.arch }}
+          path: artifact/
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: release-artifacts
+
+      - name: Flatten downloaded artifacts
+        run: |
+          mkdir combined
+          find release-artifacts -type f -exec cp {} combined/ \;
+          echo "Combined files:"
+          ls -l combined
+
+      - name: Create GitHub Release with auto-generated release notes
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.sha }}
+          name: Release ${{ github.sha }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          assets: combined/*
