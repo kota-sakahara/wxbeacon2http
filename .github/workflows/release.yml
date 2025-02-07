@@ -43,16 +43,16 @@ jobs:
       - name: Add target triple
         run: rustup target add ${{ matrix.target }}
 
-      # Linux（Ubuntu-22.04）で aarch64 ターゲットの場合、apt ソースを ports 系に上書きして必要なパッケージをインストール
+      # Ubuntu-22.04 で aarch64 ターゲットの場合、apt のソースリストを ports 系に固定して必要パッケージをインストール
       - name: Setup cross-compilation for aarch64 (Linux)
         if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && runner.os == 'Linux' }}
         run: |
           sudo dpkg --add-architecture arm64
           sudo bash -c 'cat > /etc/apt/sources.list' <<EOF
-          deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
-          deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
-          deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports-security jammy-security main restricted universe multiverse
-          deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
+          deb http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+          deb http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+          deb http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+          deb http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
           EOF
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libdbus-1-dev:arm64 pkg-config
