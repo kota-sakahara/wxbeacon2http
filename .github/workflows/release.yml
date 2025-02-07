@@ -42,6 +42,13 @@ jobs:
       - name: Add target triple
         run: rustup target add ${{ matrix.target }}
 
+      # Ubuntu向けにシステム依存パッケージをインストール（Linuxランナーの場合のみ）
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
       
