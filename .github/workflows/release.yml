@@ -31,7 +31,8 @@ jobs:
             arch: arm64
             target: aarch64-pc-windows-msvc
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -42,16 +43,20 @@ jobs:
       - name: Add target triple
         run: rustup target add ${{ matrix.target }}
 
-      # Ubuntu向けにシステム依存パッケージをインストール（Linuxランナーの場合のみ）
-      - name: Install system dependencies (Linux)
-        if: runner.os == 'Linux'
+      # aarch64 クロスコンパイル（Linux）向け環境構築
+      - name: Setup cross-compilation for aarch64
+        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && runner.os == 'Linux' }}
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y libdbus-1-dev pkg-config
+          sudo apt-get install -y gcc-aarch64-linux-gnu libdbus-1-dev:arm64 pkg-config
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
-      
+
       - name: Prepare artifact
         shell: bash
         run: |
