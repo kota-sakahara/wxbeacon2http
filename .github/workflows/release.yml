@@ -12,10 +12,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-22.04
             arch: x86_64
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-24.04
+          - os: ubuntu-22.04
             arch: arm64
             target: aarch64-unknown-linux-gnu
           - os: macos-latest
@@ -43,15 +43,13 @@ jobs:
       - name: Add target triple
         run: rustup target add ${{ matrix.target }}
 
-      # Ubuntu-24.04で aarch64 ターゲットの場合、arm64 アーキテクチャを追加して必要パッケージをインストール
-      - name: Setup cross-compilation for aarch64 (Ubuntu 24.04)
+      - name: Setup cross-compilation for aarch64 (Ubuntu 22.04)
         if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && runner.os == 'Linux' }}
         run: |
           sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libdbus-1-dev:arm64 pkg-config
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-          # Ubuntu 24.04 の場合、既定のソースでarm64パッケージが利用可能なため、SYSROOTやPKG_CONFIG_PATHは空で問題ありません
           echo "PKG_CONFIG_SYSROOT_DIR=" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=" >> $GITHUB_ENV
 
@@ -76,7 +74,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     needs: build
     steps:
       - name: Download all artifacts
@@ -88,7 +86,6 @@ jobs:
         run: |
           mkdir combined
           find release-artifacts -type f -exec cp {} combined/ \;
-          echo "Combined files:"
           ls -l combined
 
       - name: Create GitHub Release with auto-generated release notes
