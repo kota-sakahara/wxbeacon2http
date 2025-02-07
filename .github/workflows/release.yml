@@ -49,11 +49,11 @@ jobs:
         run: |
           sudo dpkg --add-architecture arm64
           sudo bash -c 'cat > /etc/apt/sources.list' <<EOF
-deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
-deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
-deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports-security jammy-security main restricted universe multiverse
-deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
-EOF
+          deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+          deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+          deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports-security jammy-security main restricted universe multiverse
+          deb [arch=amd64,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
+          EOF
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libdbus-1-dev:arm64 pkg-config
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
