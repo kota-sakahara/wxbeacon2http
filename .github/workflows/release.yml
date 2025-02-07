@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     name: Build (${{ matrix.os }}, ${{ matrix.arch }})
-    # Linux 向けジョブは ubuntu-24.04 を指定（Ubuntu 24.04は"lunar"）
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -44,23 +43,17 @@ jobs:
       - name: Add target triple
         run: rustup target add ${{ matrix.target }}
 
-      # Ubuntu-24.04で aarch64 ターゲットの場合、arm64 用のリポジトリ（lunar）を追加
-      - name: Setup cross-compilation for aarch64 (Linux)
+      # Ubuntu-24.04で aarch64 ターゲットの場合、arm64 アーキテクチャを追加して必要パッケージをインストール
+      - name: Setup cross-compilation for aarch64 (Ubuntu 24.04)
         if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && runner.os == 'Linux' }}
         run: |
           sudo dpkg --add-architecture arm64
-          # 新規ファイルでarm64向けリポジトリを追加（codename: lunar）
-          sudo bash -c 'cat > /etc/apt/sources.list.d/ports.list' <<EOF
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports lunar main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports lunar-updates main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports-security lunar-security main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports lunar-backports main restricted universe multiverse
-          EOF
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libdbus-1-dev:arm64 pkg-config
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-          echo "PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
+          # Ubuntu 24.04 の場合、既定のソースでarm64パッケージが利用可能なため、SYSROOTやPKG_CONFIG_PATHは空で問題ありません
+          echo "PKG_CONFIG_SYSROOT_DIR=" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=" >> $GITHUB_ENV
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
