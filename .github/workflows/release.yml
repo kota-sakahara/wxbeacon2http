@@ -8,14 +8,15 @@ on:
 jobs:
   build:
     name: Build (${{ matrix.os }}, ${{ matrix.arch }})
+    # Linux は ubuntu-22.04 を利用（Ubuntu 24.04 "noble" だと arm64 用パッケージが取得できないため）
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             arch: x86_64
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             arch: arm64
             target: aarch64-unknown-linux-gnu
           - os: macos-latest
@@ -43,8 +44,8 @@ jobs:
       - name: Add target triple
         run: rustup target add ${{ matrix.target }}
 
-      # aarch64 クロスコンパイル（Linux）向け環境構築
-      - name: Setup cross-compilation for aarch64
+      # Linux（Ubuntu-22.04）で aarch64 向けクロスコンパイル用の環境を整備
+      - name: Setup cross-compilation for aarch64 (Linux)
         if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && runner.os == 'Linux' }}
         run: |
           sudo dpkg --add-architecture arm64
@@ -75,7 +76,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build
     steps:
       - name: Download all artifacts
