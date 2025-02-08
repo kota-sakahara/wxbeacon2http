@@ -57,7 +57,7 @@ jobs:
           mv target/${{ matrix.target }}/release/wxbeacon2http${{ matrix.extension }} ./wxbeacon2http-${{ matrix.target }}${{ matrix.extension }}
 
       - name: Upload artifact for ${{ matrix.target }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wxbeacon2http-${{ matrix.target }}
           path: wxbeacon2http-${{ matrix.target }}${{ matrix.extension }}
@@ -97,7 +97,7 @@ jobs:
             extension: ".exe"
     steps:
       - name: Download artifact for ${{ matrix.target }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: wxbeacon2http-${{ matrix.target }}
 
