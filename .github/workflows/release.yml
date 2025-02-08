@@ -11,67 +11,43 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  release:
+    name: Release - ${{ matrix.platform.os-name }}
     strategy:
       matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            extension: ""
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-            extension: ""
-          - target: x86_64-pc-windows-gnu
-            os: ubuntu-latest
-            extension: ".exe"
-    # 以下、job全体の env に条件付きで設定（aarch64 のときのみ有効）
-    env:
-      PKG_CONFIG_ALLOW_CROSS: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && '1' || '' }}
-      PKG_CONFIG_SYSROOT_DIR: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && '/usr/aarch64-linux-gnu' || '' }}
-      PKG_CONFIG_PATH: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && '/usr/aarch64-linux-gnu/lib/pkgconfig' || '' }}
+        platform:
+          - os-name: FreeBSD-x86_64
+            runs-on: ubuntu-20.04
+            target: x86_64-unknown-freebsd
+          - os-name: Linux-x86_64
+            runs-on: ubuntu-20.04
+            target: x86_64-unknown-linux-musl
+          - os-name: Linux-aarch64
+            runs-on: ubuntu-20.04
+            target: aarch64-unknown-linux-musl
+          - os-name: Linux-riscv64
+            runs-on: ubuntu-20.04
+            target: riscv64gc-unknown-linux-gnu
+          - os-name: Windows-x86_64
+            runs-on: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os-name: macOS-x86_64
+            runs-on: macOS-latest
+            target: x86_64-apple-darwin
 
+    runs-on: ${{ matrix.platform.runs-on }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up QEMU for cross-platform builds
-        uses: docker/setup-qemu-action@v2
-
-      - name: Install Windows cross tools
-        if: contains(matrix.target, 'windows')
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y mingw-w64
-
-      # aarch64向けの追加ライブラリのインストール
-      - name: Install cross libraries for aarch64
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update -qq
-          sudo apt-get install -y libdbus-1-dev:arm64 pkg-config
-
-      - name: Set up Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v1
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-          profile: minimal
-
-      - name: Add target
-        run: rustup target add ${{ matrix.target }}
-
-      - name: Build binary for ${{ matrix.target }}
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Rename binary for ${{ matrix.target }}
-        run: |
-          mv target/${{ matrix.target }}/release/wxbeacon2http${{ matrix.extension }} ./wxbeacon2http-${{ matrix.target }}${{ matrix.extension }}
-
-      - name: Upload artifact for ${{ matrix.target }}
-        uses: actions/upload-artifact@v4
+          command: ${{ matrix.platform.command }}
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
+      - name: Publish artifacts and release
+        uses: houseabsolute/actions-rust-release@v0
         with:
-          name: wxbeacon2http-${{ matrix.target }}
-          path: wxbeacon2http-${{ matrix.target }}${{ matrix.extension }}
+          executable-name: ubi
+          target: ${{ matrix.platform.target }}
