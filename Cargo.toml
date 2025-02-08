@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 wxbeacon2http_lib = { path = "./wxbeacon2http_lib" }
 tokio = { version = "1.0", features = ["full"] }
+dbus = {version = "0.9.7", features = ["vendored"]}
 structopt = "0.3"
