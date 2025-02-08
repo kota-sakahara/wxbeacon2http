@@ -49,5 +49,4 @@ jobs:
         uses: houseabsolute/actions-rust-release@v0
         with:
           executable-name: wxbeacon2http
-          changes-file: ""
           target: ${{ matrix.platform.target }}
