@@ -1,104 +1,112 @@
-name: Build & Release
+name: Release
 
+# mainブランチへのPushまたは手動実行がトリガー
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    name: Build (${{ matrix.os }}, ${{ matrix.arch }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
-            arch: x86_64
-            target: x86_64-unknown-linux-gnu
-          - os: ubuntu-22.04
-            arch: arm64
-            target: aarch64-unknown-linux-gnu
-          - os: macos-latest
-            arch: x86_64
-            target: x86_64-apple-darwin
-          - os: macos-latest
-            arch: arm64
-            target: aarch64-apple-darwin
-          - os: windows-latest
-            arch: x86_64
-            target: x86_64-pc-windows-msvc
-          - os: windows-latest
-            arch: arm64
-            target: aarch64-pc-windows-msvc
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            extension: ""
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            extension: ""
+          - target: x86_64-pc-windows-gnu
+            os: ubuntu-latest
+            extension: ".exe"
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Set up QEMU for cross-platform builds
+        uses: docker/setup-qemu-action@v2
+
+      - name: Install Windows cross tools
+        if: contains(matrix.target, "windows")
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y mingw-w64
 
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: ${{ matrix.target }}
           override: true
+          profile: minimal
 
-      - name: Add target triple
+      - name: Add target
         run: rustup target add ${{ matrix.target }}
 
-      - name: Setup cross-compilation for aarch64
-        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && runner.os == 'Linux' }}
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo mkdir -p /etc/apt/sources.list.d
-          # jammy (= 22.04) 用の arm64 パッケージは ports.ubuntu.com にあるため明示的に登録
-          sudo sh -c "echo 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main universe restricted multiverse' > /etc/apt/sources.list.d/arm64-ports.list"
-          sudo sh -c "echo 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe restricted multiverse' >> /etc/apt/sources.list.d/arm64-ports.list"
-          sudo sh -c "echo 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main universe restricted multiverse' >> /etc/apt/sources.list.d/arm64-ports.list"
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libdbus-1-dev:arm64 pkg-config
-          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-          echo "PKG_CONFIG_SYSROOT_DIR=" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=" >> $GITHUB_ENV
-
-      - name: Build release binary
+      - name: Build binary for ${{ matrix.target }}
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Prepare artifact
-        shell: bash
+      - name: Rename binary for ${{ matrix.target }}
         run: |
-          mkdir artifact
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            cp target/${{ matrix.target }}/release/wxbeacon2http.exe artifact/wxbeacon2http-${{ matrix.os }}-${{ matrix.arch }}.exe
-          else
-            cp target/${{ matrix.target }}/release/wxbeacon2http artifact/wxbeacon2http-${{ matrix.os }}-${{ matrix.arch }}
-          fi
+          mv target/${{ matrix.target }}/release/wxbeacon2http${{ matrix.extension }} ./wxbeacon2http-${{ matrix.target }}${{ matrix.extension }}
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload artifact for ${{ matrix.target }}
+        uses: actions/upload-artifact@v3
         with:
-          name: wxbeacon2http-${{ matrix.os }}-${{ matrix.arch }}
-          path: artifact/
+          name: wxbeacon2http-${{ matrix.target }}
+          path: wxbeacon2http-${{ matrix.target }}${{ matrix.extension }}
 
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-22.04
+  create_release:
     needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_tag: ${{ steps.set_tag.outputs.release_tag }}
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - name: Set release tag (CalVer)
+        id: set_tag
+        run: echo "::set-output name=release_tag::$(date +'%Y.%m.%d')"
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          path: release-artifacts
-
-      - name: Flatten downloaded artifacts
-        run: |
-          mkdir combined
-          find release-artifacts -type f -exec cp {} combined/ \;
-          ls -l combined
-
-      - name: Create GitHub Release with auto-generated release notes
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ github.sha }}
-          name: Release ${{ github.sha }}
-          generate_release_notes: true
+          tag_name: ${{ steps.set_tag.outputs.release_tag }}
+          release_name: Release ${{ steps.set_tag.outputs.release_tag }}
           draft: false
           prerelease: false
-          assets: combined/*
+
+  upload_release:
+    needs: create_release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            extension: ""
+          - target: aarch64-unknown-linux-gnu
+            extension: ""
+          - target: x86_64-pc-windows-gnu
+            extension: ".exe"
+    steps:
+      - name: Download artifact for ${{ matrix.target }}
+        uses: actions/download-artifact@v3
+        with:
+          name: wxbeacon2http-${{ matrix.target }}
+
+      - name: Upload release asset for ${{ matrix.target }}
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: wxbeacon2http-${{ matrix.target }}/wxbeacon2http-${{ matrix.target }}${{ matrix.extension }}
+          asset_name: wxbeacon2http-${{ matrix.target }}${{ matrix.extension }}
+          asset_content_type: application/octet-stream
