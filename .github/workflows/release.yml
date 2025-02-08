@@ -33,7 +33,7 @@ jobs:
         uses: docker/setup-qemu-action@v2
 
       - name: Install Windows cross tools
-        if: contains(matrix.target, "windows")
+        if: contains(matrix.target, 'windows')
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y mingw-w64
